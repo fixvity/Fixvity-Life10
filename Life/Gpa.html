@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GPA Calculator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+  --primary:#4f46e5;
+  --bg:#f4f6fb;
+  --card:#ffffff;
+  --radius:14px;
+  --text:#1f2937;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Inter,system-ui,Arial;
+  background:var(--bg);
+  color:var(--text);
+}
+.container{max-width:1100px;margin:auto;padding:16px}
+.card{
+  background:var(--card);
+  border-radius:var(--radius);
+  box-shadow:0 12px 28px rgba(0,0,0,.08);
+  margin-bottom:22px;
+  padding:20px;
+}
+h1,h3{margin:0;color:var(--primary)}
+small{color:var(--muted)}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:14px;
+  font-size:14px;
+}
+th,td{
+  padding:10px;
+  text-align:center;
+  border-bottom:1px solid #e5e7eb;
+}
+th{
+  background:#eef2ff;
+  color:#3730a3;
+}
+
+input,select{
+  width:100%;
+  height:42px;
+  padding:6px 10px;
+  border-radius:8px;
+  border:1px solid #d1d5db;
+  font-size:14px;
+}
+
+button{
+  height:48px;
+  padding:0 20px;
+  border:none;
+  border-radius:10px;
+  background:var(--primary);
+  color:#fff;
+  font-size:15px;
+  cursor:pointer;
+}
+
+.controls{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;
+}
+
+.badge{
+  display:inline-block;
+  padding:6px 14px;
+  border-radius:999px;
+  background:#eef2ff;
+  color:#3730a3;
+  font-size:14px;
+  margin:6px 6px 0 0;
+}
+
+.result{
+  margin-top:16px;
+  background:#f9fafb;
+  border-radius:12px;
+  padding:16px;
+}
+
+.warning{
+  color:#b91c1c;
+  font-weight:600;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<div class="card">
+<h1>🎓 GPA Calculator</h1>
+<small>Global standard · Credit-weighted · Scientifically accurate</small>
+</div>
+
+<div class="card">
+<h3>Grading System</h3>
+
+<div class="controls">
+  <div>
+    <label>GPA Scale</label>
+    <select id="scale">
+      <option value="4">4.0 Scale (US)</option>
+      <option value="5">5.0 Scale (Weighted)</option>
+      <option value="10">10-Point Scale</option>
+      <option value="100">Percentage</option>
+    </select>
+  </div>
+</div>
+
+<table id="courseTable">
+<thead>
+<tr>
+  <th>Course</th>
+  <th>Grade</th>
+  <th>Credits</th>
+  <th>Remove</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<br>
+<button onclick="addRow()">➕ Add Course</button>
+<button onclick="calculateGPA()">Calculate GPA</button>
+
+<div id="output" class="result">Enter courses and calculate GPA.</div>
+</div>
+
+</div>
+
+<script>
+const gradeMaps = {
+  4: {A:4, B:3, C:2, D:1, F:0},
+  5: {A:5, B:4, C:3, D:2, F:0}
+};
+
+function addRow(){
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td><input placeholder="e.g. Mathematics"></td>
+    <td><input placeholder="A / 85"></td>
+    <td><input type="number" min="0" step="0.5" value="3"></td>
+    <td><button onclick="this.closest('tr').remove()">❌</button></td>
+  `;
+  document.querySelector("#courseTable tbody").appendChild(row);
+}
+addRow();
+
+function calculateGPA(){
+  const scale = parseFloat(document.getElementById("scale").value);
+  const rows = document.querySelectorAll("#courseTable tbody tr");
+
+  let totalPoints = 0;
+  let totalCredits = 0;
+
+  for(const r of rows){
+    const gradeRaw = r.children[1].firstElementChild.value.trim();
+    const credits = parseFloat(r.children[2].firstElementChild.value);
+
+    if(!gradeRaw || isNaN(credits) || credits <= 0) continue;
+
+    let gradePoint = null;
+
+    // Letter grades (only valid for 4 & 5 scale)
+    if(isNaN(gradeRaw)){
+      if(gradeMaps[scale]){
+        gradePoint = gradeMaps[scale][gradeRaw.toUpperCase()];
+      }
+    }
+    // Numeric grades
+    else{
+      const num = parseFloat(gradeRaw);
+
+      if(scale === 100 && num >= 0 && num <= 100) gradePoint = num;
+      if(scale === 10 && num >= 0 && num <= 10) gradePoint = num;
+      if(scale === 5 && num >= 0 && num <= 5) gradePoint = num;
+      if(scale === 4 && num >= 0 && num <= 4) gradePoint = num;
+    }
+
+    if(gradePoint === null) continue;
+
+    totalPoints += gradePoint * credits;
+    totalCredits += credits;
+  }
+
+  if(totalCredits === 0){
+    output.innerHTML = "<span class='warning'>No valid courses entered.</span>";
+    return;
+  }
+
+  const rawGPA = totalPoints / totalCredits;
+
+  // Normalize GPA to 4.0 scale
+  const normalizedGPA = scale === 100 ? (rawGPA / 100) * 4 :
+                        scale === 10  ? (rawGPA / 10) * 4 :
+                        scale === 5   ? (rawGPA / 5) * 4 :
+                        rawGPA;
+
+  const percentage =
+    scale === 100 ? rawGPA :
+    scale === 10  ? (rawGPA / 10) * 100 :
+    scale === 5   ? (rawGPA / 5) * 100 :
+                    (rawGPA / 4) * 100;
+
+  const classification =
+    normalizedGPA >= 3.7 ? "First Class / Honors" :
+    normalizedGPA >= 3.3 ? "Upper Second Class" :
+    normalizedGPA >= 3.0 ? "Second Class" :
+    normalizedGPA >= 2.0 ? "Pass" :
+    "Below Pass";
+
+  output.innerHTML = `
+    <span class="badge">GPA: ${rawGPA.toFixed(2)} / ${scale}</span>
+    <span class="badge">Credits: ${totalCredits.toFixed(1)}</span>
+    <span class="badge">Percentage: ${percentage.toFixed(1)}%</span>
+    <span class="badge">${classification}</span>
+
+    <table>
+      <tr><th>Total Grade Points</th><td>${totalPoints.toFixed(2)}</td></tr>
+      <tr><th>Total Credits</th><td>${totalCredits.toFixed(2)}</td></tr>
+      <tr><th>Final GPA</th><td>${rawGPA.toFixed(2)}</td></tr>
+      <tr><th>Normalized GPA (4.0)</th><td>${normalizedGPA.toFixed(2)}</td></tr>
+      <tr><th>Result</th><td>${classification}</td></tr>
+    </table>
+  `;
+}
+</script>
+
+</body>
+</html>
