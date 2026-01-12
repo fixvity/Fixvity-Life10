@@ -97,10 +97,9 @@ button{
   font-weight:600;
 }
 
-/* ---------- PRINT STYLES ---------- */
 @media print{
+  button, input, select {display:none!important}
   body{background:#fff}
-  button, select, input {display:none!important}
   .card{box-shadow:none}
 }
 </style>
@@ -111,7 +110,7 @@ button{
 
 <div class="card">
 <h1>🎓 GPA Calculator</h1>
-<small>Global standard · Credit-weighted · Calculator.net-level accuracy</small>
+<small>Global standard · Credit-weighted · High-accuracy GPA system</small>
 </div>
 
 <div class="card">
@@ -133,7 +132,7 @@ button{
 <thead>
 <tr>
   <th>Course</th>
-  <th>Grade (A / A- / 85)</th>
+  <th>Grade</th>
   <th>Credits</th>
   <th>Remove</th>
 </tr>
@@ -144,7 +143,7 @@ button{
 <br>
 <button onclick="addRow()">➕ Add Course</button>
 <button onclick="calculateGPA()">Calculate GPA</button>
-<button onclick="window.print()">🖨️ Print GPA</button>
+<button onclick="window.print()">🖨️ Print</button>
 
 <div id="output" class="result">Enter courses and calculate GPA.</div>
 </div>
@@ -152,58 +151,65 @@ button{
 </div>
 
 <script>
-/* -------- LETTER GRADE MAPS -------- */
-const gradeMaps={
-  4:{
-    "A+":4,"A":4,"A-":3.7,
-    "B+":3.3,"B":3,"B-":2.7,
-    "C+":2.3,"C":2,"C-":1.7,
-    "D+":1.3,"D":1,"D-":0.7,
-    "F":0
-  },
-  5:{
-    "A+":5,"A":5,"A-":4.7,
-    "B+":4.3,"B":4,"B-":3.7,
-    "C+":3.3,"C":3,"C-":2.7,
-    "D":2,"F":0
-  }
+const gradeMap4 = {
+  "A+":4,"A":4,"A-":3.7,
+  "B+":3.3,"B":3,"B-":2.7,
+  "C+":2.3,"C":2,"C-":1.7,
+  "D+":1.3,"D":1,"D-":0.7,
+  "F":0
 };
+
+const gradeMap5 = {
+  "A+":5,"A":5,"A-":4.7,
+  "B+":4.3,"B":4,"B-":3.7,
+  "C+":3.3,"C":3,"C-":2.7,
+  "D":2,"F":0
+};
+
+function gradeOptions(){
+  return `
+    <option value="">Select</option>
+    <option>A+</option><option>A</option><option>A-</option>
+    <option>B+</option><option>B</option><option>B-</option>
+    <option>C+</option><option>C</option><option>C-</option>
+    <option>D+</option><option>D</option><option>D-</option>
+    <option>F</option>
+  `;
+}
 
 function addRow(){
   const r=document.createElement("tr");
   r.innerHTML=`
     <td><input placeholder="Course name"></td>
-    <td><input placeholder="A / A- / 85"></td>
+    <td>
+      <select class="grade">${gradeOptions()}</select>
+    </td>
     <td><input type="number" min="0.5" step="0.5" value="3"></td>
-    <td><button onclick="this.closest('tr').remove()">❌</button></td>`;
+    <td><button onclick="this.closest('tr').remove()">❌</button></td>
+  `;
   document.querySelector("#courseTable tbody").appendChild(r);
 }
 addRow();
 
-/* -------- GPA CALCULATION -------- */
 function calculateGPA(){
-  const scale=parseInt(scaleEl.value||document.getElementById("scale").value);
+  const scale=parseInt(document.getElementById("scale").value);
   const rows=document.querySelectorAll("#courseTable tbody tr");
 
-  let totalPoints=0, totalCredits=0;
+  let totalCredits=0, totalPoints=0;
 
   rows.forEach(r=>{
-    const gradeRaw=r.children[1].firstElementChild.value.trim();
-    const credits=parseFloat(r.children[2].firstElementChild.value);
-    if(!gradeRaw||credits<=0||isNaN(credits))return;
+    const grade=r.querySelector(".grade").value;
+    const credits=parseFloat(r.children[2].children[0].value);
 
-    let gp=null;
-    const g=gradeRaw.toUpperCase().replace(/\s+/g,"");
+    if(!grade || credits<=0 || isNaN(credits)) return;
 
-    if(isNaN(g)){
-      gp=gradeMaps[scale]?.[g];
-    }else{
-      const n=parseFloat(g);
-      if(scale===100) gp=Math.min(n/25,4);
-      else if(scale===10) gp=Math.min(n/2.5,4);
-      else gp=Math.min(n,scale);
-    }
-    if(gp===null||isNaN(gp))return;
+    let gp;
+    if(scale===4) gp=gradeMap4[grade];
+    else if(scale===5) gp=gradeMap5[grade];
+    else if(scale===10) gp=gradeMap4[grade]*2.5;
+    else gp=gradeMap4[grade]*25;
+
+    if(gp==null) return;
 
     totalPoints+=gp*credits;
     totalCredits+=credits;
@@ -215,7 +221,7 @@ function calculateGPA(){
   }
 
   const gpa=totalPoints/totalCredits;
-  const normalized4=(gpa/(scale===5?5:(scale===10?4:scale)))*4;
+  const normalized4=(gpa/(scale===5?5:(scale===10?10:scale)))*4;
   const percent=(normalized4/4)*100;
 
   const result=
@@ -236,7 +242,8 @@ function calculateGPA(){
       <tr><th>Final GPA</th><td>${gpa.toFixed(2)}</td></tr>
       <tr><th>Normalized GPA (4.0)</th><td>${normalized4.toFixed(2)}</td></tr>
       <tr><th>Result</th><td>${result}</td></tr>
-    </table>`;
+    </table>
+  `;
 }
 </script>
 
