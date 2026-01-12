@@ -68,12 +68,6 @@ button{
   cursor:pointer;
 }
 
-.controls{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-  gap:14px;
-}
-
 .badge{
   display:inline-block;
   padding:6px 14px;
@@ -109,23 +103,19 @@ button{
 <div class="card">
 <h3>Grading System</h3>
 
-<div class="controls">
-  <div>
-    <label>GPA Scale</label>
-    <select id="scale">
-      <option value="4">4.0 Scale (US)</option>
-      <option value="5">5.0 Scale (Weighted)</option>
-      <option value="10">10-Point Scale</option>
-      <option value="100">Percentage</option>
-    </select>
-  </div>
-</div>
+<label>GPA Scale</label>
+<select id="scale">
+  <option value="4">4.0 Scale (US)</option>
+  <option value="5">5.0 Scale (Weighted)</option>
+  <option value="10">10-Point Scale</option>
+  <option value="100">Percentage</option>
+</select>
 
 <table id="courseTable">
 <thead>
 <tr>
   <th>Course</th>
-  <th>Grade</th>
+  <th>Grade (A / 85 / A/85)</th>
   <th>Credits</th>
   <th>Remove</th>
 </tr>
@@ -143,17 +133,15 @@ button{
 </div>
 
 <script>
-const gradeMaps = {
-  4: {A:4, B:3, C:2, D:1, F:0},
-  5: {A:5, B:4, C:3, D:2, F:0}
-};
+const gradeMap4 = {A:4, B:3, C:2, D:1, F:0};
+const gradeMap5 = {A:5, B:4, C:3, D:2, F:0};
 
 function addRow(){
-  const row = document.createElement("tr");
-  row.innerHTML = `
-    <td><input placeholder="e.g. Mathematics"></td>
-    <td><input placeholder="A / 85"></td>
-    <td><input type="number" min="0" step="0.5" value="3"></td>
+  const row=document.createElement("tr");
+  row.innerHTML=`
+    <td><input placeholder="Mathematics"></td>
+    <td><input placeholder="A / 85 / A/85"></td>
+    <td><input type="number" value="3" min="0.5" step="0.5"></td>
     <td><button onclick="this.closest('tr').remove()">❌</button></td>
   `;
   document.querySelector("#courseTable tbody").appendChild(row);
@@ -161,80 +149,84 @@ function addRow(){
 addRow();
 
 function calculateGPA(){
-  const scale = parseFloat(document.getElementById("scale").value);
-  const rows = document.querySelectorAll("#courseTable tbody tr");
+  const scale=parseInt(document.getElementById("scale").value);
+  const rows=document.querySelectorAll("#courseTable tbody tr");
 
-  let totalPoints = 0;
-  let totalCredits = 0;
+  let totalPoints=0, totalCredits=0;
 
-  for(const r of rows){
-    const gradeRaw = r.children[1].firstElementChild.value.trim();
-    const credits = parseFloat(r.children[2].firstElementChild.value);
+  rows.forEach(r=>{
+    const gradeRaw=r.children[1].firstElementChild.value.trim();
+    const credits=parseFloat(r.children[2].firstElementChild.value);
+    if(!gradeRaw||isNaN(credits)||credits<=0) return;
 
-    if(!gradeRaw || isNaN(credits) || credits <= 0) continue;
+    let letter=null, numeric=null;
 
-    let gradePoint = null;
-
-    // Letter grades (only valid for 4 & 5 scale)
-    if(isNaN(gradeRaw)){
-      if(gradeMaps[scale]){
-        gradePoint = gradeMaps[scale][gradeRaw.toUpperCase()];
-      }
-    }
-    // Numeric grades
-    else{
-      const num = parseFloat(gradeRaw);
-
-      if(scale === 100 && num >= 0 && num <= 100) gradePoint = num;
-      if(scale === 10 && num >= 0 && num <= 10) gradePoint = num;
-      if(scale === 5 && num >= 0 && num <= 5) gradePoint = num;
-      if(scale === 4 && num >= 0 && num <= 4) gradePoint = num;
+    if(gradeRaw.includes("/")){
+      const parts=gradeRaw.split("/");
+      letter=parts[0].toUpperCase();
+      numeric=parseFloat(parts[1]);
+    }else if(isNaN(gradeRaw)){
+      letter=gradeRaw.toUpperCase();
+    }else{
+      numeric=parseFloat(gradeRaw);
     }
 
-    if(gradePoint === null) continue;
+    let gp=null;
 
-    totalPoints += gradePoint * credits;
-    totalCredits += credits;
-  }
+    if((scale===4||scale===5)&&letter){
+      gp=scale===4?gradeMap4[letter]:gradeMap5[letter];
+    }
 
-  if(totalCredits === 0){
-    output.innerHTML = "<span class='warning'>No valid courses entered.</span>";
+    if(gp===null&&numeric!==null&&!isNaN(numeric)){
+      if(scale===100&&numeric>=0&&numeric<=100) gp=numeric;
+      if(scale===10&&numeric>=0&&numeric<=10) gp=numeric;
+      if(scale===5&&numeric>=0&&numeric<=5) gp=numeric;
+      if(scale===4&&numeric>=0&&numeric<=4) gp=numeric;
+    }
+
+    if(gp===null) return;
+
+    totalPoints+=gp*credits;
+    totalCredits+=credits;
+  });
+
+  if(totalCredits===0){
+    output.innerHTML="<span class='warning'>No valid courses entered.</span>";
     return;
   }
 
-  const rawGPA = totalPoints / totalCredits;
+  const gpa=totalPoints/totalCredits;
 
-  // Normalize GPA to 4.0 scale
-  const normalizedGPA = scale === 100 ? (rawGPA / 100) * 4 :
-                        scale === 10  ? (rawGPA / 10) * 4 :
-                        scale === 5   ? (rawGPA / 5) * 4 :
-                        rawGPA;
+  const normalized =
+    scale===100?gpa/25:
+    scale===10?gpa/2.5:
+    scale===5?gpa*0.8:
+    gpa;
 
   const percentage =
-    scale === 100 ? rawGPA :
-    scale === 10  ? (rawGPA / 10) * 100 :
-    scale === 5   ? (rawGPA / 5) * 100 :
-                    (rawGPA / 4) * 100;
+    scale===100?gpa:
+    scale===10?(gpa/10)*100:
+    scale===5?(gpa/5)*100:
+    (gpa/4)*100;
 
-  const classification =
-    normalizedGPA >= 3.7 ? "First Class / Honors" :
-    normalizedGPA >= 3.3 ? "Upper Second Class" :
-    normalizedGPA >= 3.0 ? "Second Class" :
-    normalizedGPA >= 2.0 ? "Pass" :
-    "Below Pass";
+  const result =
+    normalized>=3.7?"First Class / Honors":
+    normalized>=3.3?"Upper Second":
+    normalized>=3.0?"Second Class":
+    normalized>=2.0?"Pass":"Below Pass";
 
-  output.innerHTML = `
-    <span class="badge">GPA: ${rawGPA.toFixed(2)} / ${scale}</span>
+  output.innerHTML=`
+    <span class="badge">GPA: ${gpa.toFixed(2)} / ${scale}</span>
     <span class="badge">Credits: ${totalCredits.toFixed(1)}</span>
     <span class="badge">Percentage: ${percentage.toFixed(1)}%</span>
-    <span class="badge">${classification}</span>
+    <span class="badge">${result}</span>
 
     <table>
       <tr><th>Total Grade Points</th><td>${totalPoints.toFixed(2)}</td></tr>
       <tr><th>Total Credits</th><td>${totalCredits.toFixed(2)}</td></tr>
-      <tr><th>Final GPA</th><td>${rawGPA.toFixed(2)}</td></tr>
-      <tr><th>Normalized GPA (4.0)</th><td>${normalizedGPA.toFixed(2)}</td></tr>
-      <tr><th>Result</th><td>${classification}</td></tr>
+      <tr><th>Final GPA</th><td>${gpa.toFixed(2)}</td></tr>
+      <tr><th>Normalized GPA (4.0)</th><td>${normalized.toFixed(2)}</td></tr>
+      <tr><th>Result</th><td>${result}</td></tr>
     </table>
   `;
 }
